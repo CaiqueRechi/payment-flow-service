@@ -2,14 +2,13 @@
 
 namespace Database\Seeders;
 
+use App\Models\Payment;
 use Illuminate\Database\Seeder;
 
-class DatabaseSeeder extends Seeder
+class PaymentSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call([
-            PaymentSeeder::class,
-        ]);
+        Payment::factory()->count(20)->create();
     }
 }
