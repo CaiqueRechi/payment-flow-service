@@ -61,8 +61,53 @@ class PaymentApiTest extends TestCase
 
         $this->assertDatabaseHas('payment_status_histories', [
             'payment_id' => $payment->id,
+            'from_status' => 'pending',
             'to_status' => 'paid',
         ]);
+    }
+
+    public function test_repeating_the_same_status_is_idempotent(): void
+    {
+        $payment = Payment::factory()->create([
+            'status' => PaymentStatusEnum::PAID,
+        ]);
+
+        $this->patchJson(
+            "/api/payments/{$payment->id}/status",
+            ['status' => 'paid']
+        )->assertOk()->assertJsonPath('status', 'paid');
+
+        $this->assertDatabaseCount('payment_status_histories', 0);
+    }
+
+    public function test_it_rejects_invalid_status_transitions(): void
+    {
+        $payment = Payment::factory()->create([
+            'status' => PaymentStatusEnum::PAID,
+        ]);
+
+        $this->patchJson(
+            "/api/payments/{$payment->id}/status",
+            ['status' => 'processing']
+        )->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => 'paid',
+        ]);
+        $this->assertDatabaseCount('payment_status_histories', 0);
+    }
+
+    public function test_it_rejects_unknown_status_values(): void
+    {
+        $payment = Payment::factory()->create();
+
+        $this->patchJson(
+            "/api/payments/{$payment->id}/status",
+            ['status' => 'unknown']
+        )->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
     }
 
     public function test_it_lists_payments(): void
